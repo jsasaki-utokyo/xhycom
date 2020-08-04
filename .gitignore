@@ -2,3 +2,9 @@
 *.png
 *.ncl
 *.pyc
+*.org
+*.ipynb
+*.ncl
+*.txt
+*.asc
+
