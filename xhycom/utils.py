@@ -225,7 +225,7 @@ def ax_lonlat_axes(ax, extent, grid_linestyle=':', grid_linewidth=0.5, grid_colo
         grid_alpha(float)        : opacity (default: 0.8)
         xticks(list)             : list of xticks (default: None)
         yticks(list)             : list of yticks (default: None)
-        label_size(int)          : label size in pt (default: 12)
+        label_size(int)          : axes label size in pt (default: 12)
         tiler(cartopy.io.img_tiles):
         zoom(int)                : zoom in tiler
     Returns:
@@ -241,8 +241,8 @@ def ax_lonlat_axes(ax, extent, grid_linestyle=':', grid_linewidth=0.5, grid_colo
                         linewidth=grid_linewidth, color=grid_color, alpha=grid_alpha)
         gl.right_labels=False
         gl.top_labels=False
-        #gl.xlabel_style={'size':label_size}
-        #gl.ylabel_style={'size':label_size}
+        gl.xlabel_style={'size':label_size}
+        gl.ylabel_style={'size':label_size}
         if xticks is not None:
             gl.xlocator = mticker.FixedLocator(xticks)
         if yticks is not None:
@@ -259,9 +259,9 @@ def ax_lonlat_axes(ax, extent, grid_linestyle=':', grid_linewidth=0.5, grid_colo
         lonfmt=LongitudeFormatter(zero_direction_label=True)
         ax.xaxis.set_major_formatter(lonfmt)
         ax.yaxis.set_major_formatter(latfmt)
-        #ax.axes.tick_params(labelsize=label_size)
+        ax.axes.tick_params(labelsize=label_size)
         ax.add_image(tiler, zoom)
-    plt.rcParams['font.size'] = label_size
+    #plt.rcParams['font.size'] = label_size
     return ax
 
 
