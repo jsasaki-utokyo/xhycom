@@ -8,6 +8,7 @@ import sys
 import netCDF4
 from netCDF4 import num2date
 import subprocess
+import os
 import xarray as xr
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -168,7 +169,7 @@ def set_urls(year, idx_lon_range, idx_lat_range, idx_time):
 
 def create_netcdf(urls):
     '''
-    Create netcdf for urls prepared by function set_urls.
+    Create netcdf for urls (multiple time) prepared by function set_urls.
     
     Args:
         urls(list): Urls for HYCOM OPeNDAP
@@ -296,12 +297,16 @@ def run_hycom_gofs3_1_region_ymdh(extent, time, \
     ds = create_netcdf(urls)
     ### tau does not follow netCDF convention and not useful; deleted
     ds = ds.drop_vars("tau")
-    ### Modify time coord
+
+    ### Activate for pcolormesh()
+    ### pcolormesh does not work even activating the following.
     #ds['time'] = pd.to_datetime(num2date(ds.time, units=ds.time.units, calendar="standard", \
     #                                     only_use_cftime_datetimes=False))
-    ds['time'].attrs["long_name"] = "Time"
+    #ds['time'].attrs["long_name"] = "Time"
     #ds['time'].attrs["axis"] = "T"
     #ds['time'].attrs["NAVO_code"]="13"
+    ### End
+
     return ds
 
 def run_opendap(extent, time_start, time_end=None, dtime=3, tz='utc'):
@@ -330,11 +335,18 @@ def run_opendap(extent, time_start, time_end=None, dtime=3, tz='utc'):
         time_str = time.strftime('%Y-%m-%d %H:%M:%S')
         ### ncfile name cannot contain ':' or ' '.
         ncfile = "hycom_" + time.strftime('%Y-%m-%d_%H') + ".nc"
-        ds = run_hycom_gofs3_1_region_ymdh(extent=extent, time=time_str)
-        ds.to_netcdf(ncfile, mode="w")
-        print("Creating " + ncfile + " complete.")
+        if os.path.exists(ncfile):
+            print(ncfile + ' exists and skip creating ' + ncfile + '.')
+        else:
+            ds = run_hycom_gofs3_1_region_ymdh(extent=extent, time=time_str)
+            ds.to_netcdf(ncfile, mode="w")
+            print("Creating " + ncfile + " complete.")
 
 
+########################################################
+# Class definitions
+########################################################
+        
 ########################################################
 if __name__ == "__main__":
 ########################################################
