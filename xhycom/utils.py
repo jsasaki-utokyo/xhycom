@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 import xarray as xr
-from netCDF4 import num2date, date2num
+from netCDF4 import Dataset, num2date, date2num
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.io.img_tiles import Stamen
@@ -69,30 +69,43 @@ def gets_hours_from_time_origin(time, time_org='2000-01-01 00:00:00', tz='utc', 
         num_hours = int(num_hours)
     return num_hours, time_stamp
 
-def dims_from_opendap_dataset_access_form(year, dirpath="./gofs3.1/"):
+def dims_from_opendap_dataset_access_form(year, opendap=False, dirpath="./gofs3.1/"):
     '''
-    Reading catalog files of information about dimensions
-    The files should be manually prepared using OPeNDAP Dataset Access Form
+    Reading catalog files of information about dimensions from remote or local
+    In case of local, the files should be manually prepared using OPeNDAP Dataset Access Form
     by checking checkboxes for variables of depth, lat, lon, and time in a specified year
     http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_53.X/data/2015.html
     and stored in dirpath.
+    In case of remote, opendap core url without year should be spcified in dirpath like below:
+    dirpath = "http://tds.hycom.org/thredds/dodsC/GLBv0.08/expt_53.X/data/"
     
     Args:
         year (str)  : target year
-        dirpath(str): directory path for catalog fiels
+        opendap (bool) : True from opendap, False from local file
+        dirpath(str): directory path for catalog fiels or opendap core url
     Returns:
        dimensions(dict): {"depth":depth, "lat":lat, "lon":lon, "time":time}
     '''
 
-    infile = dirpath + year + ".dpb.txt"
-    with open(infile) as f:
-        reader = csv.reader(f)
-        rows = [row for row in reader]
-    depth = np.array(rows[8], dtype='float')
-    lat   = np.array(rows[11], dtype='float')
-    lon   = np.array(rows[14], dtype='float')
-    time  = np.array(rows[17], dtype='float')
-    time  = time.astype(np.int)
+    if opendap:
+        print('Accessing OPeNDAP catalog')
+        infile = dirpath + year
+        clg = Dataset(infile, mode='r')
+        lon = clg.variables["lon"][:].data
+        lat = clg.variables['lat'][:].data
+        time = clg.variables['time'][:].data
+        depth = clg.variables['depth'][:].data
+        clg.close()
+    else:
+        infile = dirpath + year + ".dpb.txt"
+        with open(infile) as f:
+            reader = csv.reader(f)
+            rows = [row for row in reader]
+        depth = np.array(rows[8], dtype='float')
+        lat   = np.array(rows[11], dtype='float')
+        lon   = np.array(rows[14], dtype='float')
+        time  = np.array(rows[17], dtype='float')
+        time  = time.astype(np.int)
     dict_dims = {"depth": depth, "lat": lat, "lon": lon, "time": time}
     return dict_dims
 
@@ -268,7 +281,7 @@ def ax_lonlat_axes(ax, extent, grid_linestyle=':', grid_linewidth=0.5, grid_colo
 
 # Run functions
 
-def run_hycom_gofs3_1_region_ymdh(extent, time, \
+def run_hycom_gofs3_1_region_ymdh(extent, time, opendap = False, dirpath = "./gofs3.1/", \
                                   time_org='2000-01-01 00:00:00', tz='utc'):
     '''
     Downloding HYCOM dataset using OPeNDAP by specifying spatial region and time
@@ -289,7 +302,7 @@ def run_hycom_gofs3_1_region_ymdh(extent, time, \
                                                           tz=tz, tz_diff=0, val_int=True)
     print(time_in_hours, time_ymdh)
     year = time_ymdh.strftime('%Y')
-    dict_dims = dims_from_opendap_dataset_access_form(year)
+    dict_dims = dims_from_opendap_dataset_access_form(year=year, opendap=opendap, dirpath=dirpath)
     time, idx_time = gets_hycom_time(time_in_hours, array_time=dict_dims['time'])
     idx_lon_range = gets_index_range(lon_range, dict_dims['lon'])
     idx_lat_range = gets_index_range(lat_range, dict_dims['lat'])
@@ -309,7 +322,7 @@ def run_hycom_gofs3_1_region_ymdh(extent, time, \
 
     return ds
 
-def run_opendap(extent, time_start, time_end=None, dtime=3, tz='utc'):
+def run_opendap(extent, time_start, time_end=None, dtime=3, opendap=None, dirpath='./gofs3.1/', tz='utc'):
     '''
     Download multiple OPeNDAP files for a specific region and time period
     using run_hycom_gofs3_1_region_ymdh().
@@ -334,11 +347,13 @@ def run_opendap(extent, time_start, time_end=None, dtime=3, tz='utc'):
         ### arg type of time of run_hycom_gofs3_1_region_ymdh is str.
         time_str = time.strftime('%Y-%m-%d %H:%M:%S')
         ### ncfile name cannot contain ':' or ' '.
-        ncfile = "hycom_" + time.strftime('%Y-%m-%d_%H') + ".nc"
+        str_region = "lon" + str(extent[0]) + "lon" + str(extent[1]) + "_lat" + str(extent[2]) + "lat" + str(extent[3])
+        ncfile = "hycom_" + str_region + "_" + time.strftime('%Y-%m-%d_%H') + ".nc"
         if os.path.exists(ncfile):
             print(ncfile + ' exists and skip creating ' + ncfile + '.')
         else:
-            ds = run_hycom_gofs3_1_region_ymdh(extent=extent, time=time_str)
+            ds = run_hycom_gofs3_1_region_ymdh(extent=extent, time=time_str, \
+                 opendap=opendap, dirpath=dirpath)
             ds.to_netcdf(ncfile, mode="w")
             print("Creating " + ncfile + " complete.")
 
